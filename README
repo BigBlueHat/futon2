@@ -1,0 +1,34 @@
+Apache CouchDB Futon (_utils) as a CouchApp
+===========================================
+
+Futon 2 is a Sammy-based UI for CouchDB. The hope is that
+it will eventually replace the current Futon in CouchDB.
+
+One of the current limitations to Futon is that hacking on
+it is slowed by the setup time of compiling CouchDB, or
+symlinking Futon 2 into an existing CouchDB repo, or some
+other similar setup.
+
+By providing this CouchApp directory, the hope is that
+anyone with client-side web UI experience can contribute
+to the further development of Futon 2.
+
+Installation
+------------
+
+First you will need to install CouchApp:
+
+    http://couchapp.org/page/installing
+
+Next, create a DB with any name you like ('futon2' seems
+reasonable enough).
+
+Then, within this directory, type:
+
+    couchapp push . http://localhost:5984/futon2
+
+Last, visit your CouchApp Futon 2 at:
+
+    http://localhost:5984/futon2/_design/futon/index.html
+
+Really last, enjoy!

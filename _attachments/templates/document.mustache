@@ -1,0 +1,533 @@
+<!--
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed
+under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied. See the License for the
+specific language governing permissions and limitations under the License.
+
+-->
+<ul id="toolbar">
+  <li><button class="load">Upload Attachment…</button></li>
+  <li><button class="delete">Delete Document…</button></li>
+</ul>
+
+<div id="document-container">
+  <div id="document-editor">
+    <span id="expand-all">...</span>
+    <div id="autosave">
+      <input id="autosave-input" type="checkbox" checked></input>
+      <span id="autosave-txt">auto-save</span>
+      <span id="save-button" style="display:none" class="save-disabled">save</span>
+    </div>
+  </div>
+</div>
+<div class="spacer"></div>
+<div id="document-revisions">
+  <span id="document-revisions-title">Revisions:</div>
+</div>
+
+<script>
+app.loadDocument = function ()  {
+
+var db = this.params['db']
+  , docid = this.params['docid']
+  , _doc
+  , url = '/' + encodeURIComponent(db) + '/' + encodeURIComponent(docid)
+  , _s = this
+  ;
+
+function coerceFieldValue (val) {
+  if (val == 'null') return null;
+  if (val == 'true') return true;
+  if (val == 'false') return false;
+
+  if (val.match(/^[-+]?([0-9]*\.[0-9]+|[0-9]+)$/)) {
+    if (val.indexOf('.') !== -1) return parseFloat(val)
+    else return parseInt(val)
+  }
+  
+  if (val[0] === '"' && val[val.length - 1] === '"') {
+    return val.slice(1, val.length -1);
+  }
+  if (val[0] === '[' && val[val.length - 1] === ']') {
+    return JSON.parse(val);
+  }
+  if (val[0] === '{' && val[val.length - 1] === '}') {
+    return JSON.parse(val);
+  } else {
+    return val;
+  }
+}
+  
+$('span#topbar').html('<a href="#/">Overview</a><a href="#/'+encodeURIComponent(db)+'">'+db+'</a><strong><a href="#'+url+'">'+docid+'</a></strong>');  
+
+$('button.delete').click(function () {
+  $.showDialog("dialog/_delete_document.html", {
+    submit: function(data, callback) {
+      _doc._deleted = true;
+      request({url:url, type:'PUT', data:_doc}, function (err, resp) {
+        callback();
+        if (err) handleError(err, resp);
+        location.hash = "#/"+db;
+      })
+    }
+  });
+})
+
+$('span#expand-all').click(function () {
+  $('span.expand').click(); 
+})
+var saveDisabled = {cursor:"default", "background-color": "#ddd", color:"white"};
+var saveEnabled = {cursor:"pointer", "background-color": "#D1D1D1", color:"#575757"};
+$("span#save-button").css(saveDisabled)
+
+var save = function (cb, force) {
+  var doSave = function () {
+    var previousRevision = _doc._rev;
+    request({url:url, data:_doc, type:'PUT'}, function (err, resp) {
+      if (err) handleError(err, resp)
+      _doc._rev = resp.rev;
+      $("div.doc-key:exactly('_rev')").next().html(createValue.string(_doc, '_rev', false));
+      $("span.current-revision")
+      .removeClass('current-revision')
+      .addClass("revision")
+      .attr('revision', previousRevision)
+      .click(function () {
+        window.location.hash = '#' + url + '?rev=' + $(this).attr('revision');
+      })
+      ;
+      $("span#document-revisions-title")
+      .after(
+        '<span class="current-revision">' + 
+          resp.rev.slice(0, resp.rev.indexOf('-')) + 
+        '</span>'
+      )
+      ;
+      cb()
+    })
+  }
+  
+  if (!$("input#autosave-input").attr('checked')) {
+    $("input#autosave-input").attr('disabled', true);
+    $("span#save-button")
+    .css(saveEnabled)
+    .unbind('click')
+    .click( function () {
+      save(function () {
+        $("input#autosave-input").attr('disabled', false);
+        $("span#save-button").unbind('click').css(saveDisabled);
+      }, true)
+    })
+    if (force) {doSave()}
+    else (cb())
+  } else {doSave();}   
+}
+
+var getEdit = function (obj, key, val, minWidth) {
+  var edit = function () {
+    $(this).find('span.expand').click();
+    var w = $(this).width();
+    if (w < minWidth) {
+      w = minWidth;
+    }
+    var h = $(this).height();
+    if (h > $("div.doc-key:exactly('_rev')").height()) {
+      var area = $('<textarea type="text" />')
+    } else {
+      var area = $('<input type="text" />');
+    }
+    val.html('')
+    val.html(
+      area.val(typeof obj[key] == "string" ?  obj[key] : JSON.stringify(obj[key]))
+      .width(w)
+      .height(h)
+      .change(function () {
+        obj[key] = coerceFieldValue( $(this).val() );
+        save(function (){
+          val.parent().append(createValue[getType(obj[key])](obj, key, true));
+          val.remove();
+        })
+      })
+    )
+    
+    if (area[0].tagName == 'TEXTAREA') {
+      $('<div class="save-button">Save</div>')
+      .click(area.change)
+      .appendTo(area.parent())
+    }
+    area.select();
+  }
+  return edit;
+}
+
+var getAddButton = function (obj, keyClass, array, indent) {
+  var addButton = $('<div class="add-button" />')
+  .click(function () {
+    $(this)
+    .before(
+      $('<div class="doc-field"></div>')
+      .append('<div class="id-space"></div>')
+      .append(
+        $('<input class="new-field" type="text" />')
+        .width(largestWidth('div.'+keyClass, 100))
+        .change(function () {
+          var t = $(this)
+            , v = t.val()
+            ;
+          t.parent().append(
+            $('<div class="'+keyClass+' '+(array ? 'array' : 'object')+'-key" >'+v+'</div>') 
+          )
+          $('div.'+keyClass).width(largestWidth('div.'+keyClass))
+          $('<input type="text" />')
+          .width(450)
+          .change(function () {
+            obj[v] = coerceFieldValue($(this).val());
+            var p = $(this).parent();
+            save(function () {
+              p.remove();
+              var newField = $('<div class="doc-field"></div>')
+              .append('<div class="delete-button" style="margin-left:'+(indent * 10)+'px"/>')
+              .append('<div class="'+(array ? 'array' : 'object')+'-key '+keyClass+'">'+v+'</div>')
+              .append(createValue[getType(obj[v])](obj, v, true , false))
+              addButton.before(newField)
+              $('div.'+keyClass).width(largestWidth('div.'+keyClass))
+            })
+          })
+          .appendTo(t.parent())
+          .select()
+          ;
+          t.remove();
+        })
+      )  
+    )
+    .before('<div class="spacer"></div>')
+    var inputs = $(this).parent().find('input.new-field');
+    if (array) {
+      var input = $(inputs[inputs.length - 1])
+      var l = $(input.parent().prev().find('div.array-key')[0]).text();
+      input.val(parseInt(l.length ? l : "-1") + 1).change();
+    } else {
+      inputs[inputs.length - 1].select();
+    }
+    
+  })    
+  return addButton;
+}
+
+var createValue = {
+  "string": function (obj, key, editable) {
+    var val = $('<div class="doc-value string-type"></div>')
+      , edit = getEdit(obj, key, val, 350)
+      ;
+    if (obj[key].length > 45) {
+      val.append($('<span class="string-type"></span>')
+      .click(editable ? edit : function () {  })
+      .text(obj[key].slice(0, 45)))
+      .append(
+        $('<span class="expand">...</span>')
+        .click(function () {
+          val.html('')
+          .append($('<span class="string-type"></span>')
+            .click(editable ? edit : function () {  })
+            .text(obj[key].length ? obj[key] : "   ")
+          )
+        })
+      )
+    }
+    else {
+      var val = $('<div class="doc-value string-type"></div>')
+        , edit = getEdit(obj, key, val, 350)
+        ;
+      val.append(
+        $('<span class="string-type"></span>')
+        .click(editable ? edit : function () {  })
+        .text(obj[key].length ? obj[key] : "   ")
+      )
+    }
+    return val;
+  }
+  , "number": function (obj, key, editable) {
+    var val = $('<div class="doc-value number"></div>')
+    val.append($('<span class="number-type">' + obj[key] + '</span>').click(getEdit(obj, key, val, 100)))
+    return val;
+  }
+  , "null": function (obj, key, editable) {
+    var val = $('<div class="doc-value null"></div>')
+    val.append($('<span class="null-type">' + obj[key] + '</span>').click(getEdit(obj, key, val,100)))
+    return val;
+  }
+  , "boolean": function (obj, key, editable) {
+    var val = $('<div class="doc-value null"></div>')
+    val.append($('<span class="null-type">' + obj[key] + '</span>').click(getEdit(obj, key, val,100)))
+    return val;
+  }
+  , "array": function (obj, key, editable, _attachments, indent) {
+     if (!indent) indent = 1;
+      var val = $('<div class="doc-value array"></div>')
+      $('<span class="array-type">[</span><span class="expand" style="float:left">...</span><span class="array-type">]</span>')
+        .click(function (i, n) {
+          var n = $(this).parent();
+          var cls = 'sub-'+key+'-'+indent
+          n.html('')
+          n.append('<span style="padding-left:'+((indent - 1) * 10)+'px" class="array-type">[</span>')
+          for (i in obj[key]) {
+            n.append(
+              $('<div class="doc-field"></div>')
+                .append(
+                  $('<div class="delete-button" style="margin-left:'+(indent * 10)+'px" />')
+                  .click(function () {
+                    var entry = $(this).parent()
+                      , i = parseInt($(this).next().text())
+                      ;
+                    obj[key].splice(i, 1)
+                    
+                    save(function () {
+                      entry.parent().find('div.array-key').each(function (ii, e) {
+                        e = $(e)
+                        var ind = parseInt(e.text());
+                        if (ind > i) {
+                          e.text(ind - 1)
+                        }
+                      })
+                      entry.remove();
+                    })
+                    
+                  })
+                )
+                .append('<div class="array-key '+cls+'" >'+i+'</div>')
+                .append(createValue[getType(obj[key][i])](obj[key], i, true, false, indent + 1))
+              )
+          }
+          if (editable) {
+            n.append(getAddButton(obj[key], cls, true, indent).css('margin-left',(indent * 10)))
+            n.append('<div class="spacer"></div>')
+          }
+          n.append('<span style="padding-left:'+((indent - 1) * 10)+'px" class="array-type">]</span>')
+          $('div.'+cls).width(largestWidth('div.'+cls))
+        })
+        .appendTo($('<div class="array-type"></div>').appendTo(val))
+      return val;
+  }
+  , "object": function (obj, key, editable, _attachments, indent) {
+    if (!indent) indent = 1;
+    var val = $('<div class="doc-value object"></div>')
+    $('<span class="object-type">{</span><span class="expand" style="float:left">...</span><span class="object-type">}</span>')
+      .click(function (i, n) {
+        var n = $(this).parent();
+        var cls = hex_sha1('sub-'+key+'-'+indent)
+        n.html('')
+        n.append('<span style="padding-left:'+((indent - 1) * 10)+'px" class="object-type">{</span>')
+        for (i in obj[key]) {
+
+          var field = $('<div class="doc-field"></div>')
+          
+          if (!_attachments) {
+            if (editable !== false) {
+              var p = $('<div class="delete-button" style="margin-left:'+(indent * 10)+'px"/>').click((function (field, i) {
+                  return function () {
+                    delete obj[key][i]
+                    save(function () {
+                      field.remove();
+                    })
+                  }
+                })(field, i))
+
+            } else {
+              var p = $('<div class="id-space" style="margin-left:'+(indent * 10)+'px"/>')
+            }
+            field.append(p)
+              .append('<div class="object-key '+cls+'" >'+i+'</div>')
+              .append(createValue[getType(obj[key][i])](obj[key], i, editable, false, indent + 1))
+            n.append(field)
+          } else {
+            field.append(
+              $('<div class="delete-button" style="margin-left:'+(indent * 10)+'px"/>')
+              .click((function (field, i) {
+                return function () {
+                  delete obj[key][i]
+                  save(function () {
+                    field.remove();
+                  })
+                }
+              })(field, i))
+              )
+              .append('<div class="object-key '+cls+'" ><a href="'+url+'/'+i+'">'+i+'</a></div>')
+              .append(createValue[getType(obj[key][i])](obj[key], i, false, false, indent + 1))
+            n.append(field)
+          }
+          
+        }
+        if (editable) {
+          n.append(getAddButton(obj[key], cls, false, indent).css('margin-left',(indent * 10)))
+          n.append('<div class="spacer"></div>')
+        }
+        n.append('<span style="padding-left:'+((indent - 1) * 10)+'px" class="object-type">}</span>')
+        $('div.'+cls).width(largestWidth('div.'+cls))
+      })
+      .appendTo($('<div class="object-type"></div>').appendTo(val))
+    return val;
+  }
+}
+
+var docQuery = getQuery() || {}
+if (!docQuery.rev) docQuery.revs_info = "true"
+
+request({url:url+'?'+param(docQuery)}, function (err, resp) {
+  var setRev = false;
+  _doc = resp;
+  
+  if (err) {
+    if (err.status == 404) {
+      // New document
+      _doc = {_id:docid}
+      var _changed = false;
+      $('div#document-editor')
+        .append("<h2>Create New Document</h2>")
+        .append(
+          $('<div class="doc-value string-type"></div>')
+          .append('<div class="doc-key doc-key-base" style="padding-right:20px">_id</div>')
+          .append(
+            $('<span class="string-type"></span>')
+            .click(function () {
+              $('<input type="text" />')
+              .width($(this).width())
+              .height($(this).height())
+              .change(function () {
+                // Handle double change events, prevents conflict errors in console
+                if (_changed) return
+                _changed = true
+                request({url:'/'+db, type:'POST', data:{_id:$(this).val()}}, function (err, resp) {
+                  if (err) handleError(err, resp)
+                  // If it's a differnet docid than the one originally just pump the hash
+                  if (resp.id !== docid) window.location.hash = '#/' + db + '/' + resp.id
+                  else {
+                    // If not then refresh the page and the view of the document
+                    $('div#document-editor').html('')
+                    app.showDocument.apply(_s, _s.arguments)
+                  }
+                })
+              })
+              .appendTo($(this).parent())
+              ;
+              $(this).remove();
+              
+            })
+            .text(docid ? docid : '')                
+          )
+        )
+      
+      $("div.doc-key:exactly('_id')").next().click(); 
+      // Handle hitting return in unchanged text field
+      $("div.doc-key:exactly('_id')").next().keypress(function (e) {
+        if (e.keyCode == 13) $(e.target).change();
+      })
+      .val(docid)
+      .select()
+      ;
+    }
+    
+  } else {
+    // Autosave enable and disable
+    $("input#autosave-input").click( function () {
+      var disable = !$("input#autosave-input").attr('checked');
+      $("span#autosave-txt")[disable ? "hide" : "show"]()
+      $("span#save-button")[disable ? "show" : "hide"]()
+    })
+  
+    var d = $('div#document-editor');
+    for (i in resp) {
+      var field = $('<div class="doc-field"></div>')
+      // Do not allow removal of _id and _rev attributes and _attachments
+      if (!docQuery.rev && i !== '_rev' && i !== '_id' && i !== '_attachments' && i !== '_revs_info') {
+        $('<div class="delete-button" />').click((function (field, i) {
+          return function () {
+            delete _doc[i]
+            save(function () {
+              field.remove();
+            })
+          }
+        })(field, i))
+        .appendTo(field)
+      } else if (i !== '_revs_info') {
+        $('<div class="id-space" />').appendTo(field);
+      }
+      
+      if (i !== '_revs_info') {
+        field.append('<div class="doc-key doc-key-base">'+i+'</div>')
+        // All top level fields are editable except _id, _rev and _attachments
+        // and make sure that _attachments object is rendered differently.
+        field.append(createValue[getType(resp[i])](resp, i, (!docQuery.rev && i !== '_rev' && i !== '_id' ) , 
+          (i == '_attachments'))
+        )
+        d.append(field)
+      } else {
+        var h = '';
+        for (var x=0;x<resp._revs_info.length;x++) {
+          if (resp._revs_info[x].rev == resp._rev) {
+            h += '<span class="current-revision">'+resp._revs_info[x].rev.slice(0, resp._revs_info[x].rev.indexOf('-'))+'</span>'
+          } else {
+            h += '<span class="revision revision-status-' + resp._revs_info[x].status + 
+                   '" rev_info_index="'+x+'" revision="' + resp._revs_info[x].rev + '">' + 
+                   resp._revs_info[x].rev.slice(0, resp._revs_info[x].rev.indexOf('-')) +
+                   '</span>'
+          }
+        }
+        $('div#document-revisions').append(h)
+        $('span.revision-status-available,span.revision-status-disk').click(function () {
+          window.location.hash = '#' + url + '?rev=' + $(this).attr('revision')
+        })
+        $('span.revision').hover(function () {
+          var r = resp._revs_info[$(this).attr('rev_info_index')];
+          var t = $('<span class="tooltip">' +
+            '<span class="tooltip-rev">'+r.rev+'</span><br>' +
+            '<span class="tooltip-status"><span class="tooltip-status-title">status: </span>'+r.status+'</span>' +
+          '</span>')
+          var w = $("#content").width();
+          $(this).append(t);
+          t.css('left', t.position().left + 4) 
+          if ((t.position().left + t.width()) > w) {
+            t.css('top', t.position().top + $(this).height())
+            t.css('left', t.position().left - t.width())
+          }
+          if ( t.position().top !== $(this).position().top ) {
+            t.css('top', $(this).position().top - t.height() )
+          }
+          if (t.position().top + t.height() > w) t.css('top', t.position().top - t.height())
+        }, function () {
+          $(this).find('span.tooltip').remove();
+        })
+      }
+    }
+  }
+
+  $('div.doc-key-base').width(largestWidth('div.doc-key-base'))
+  
+  if (!docQuery.rev) d.append(getAddButton(_doc, 'doc-key-base', false))
+  else {
+    $('div#autosave').remove();
+    $('div#document-revisions')
+    .html('')
+    .append('<div id="restore-button"><span id="restore">restore</span></div>')
+    .click(function () {
+      request({url:url}, function (err, resp) {
+        if (err) handleError(err, resp);
+        _doc._rev = resp._rev;
+        request({url:url, type:'PUT', data:_doc}, function (err, resp) {
+          if (err) handleError(err, resp);
+          window.location.hash = '#' + url
+        })
+      })
+    })
+    ;
+  }
+  
+}) 
+// end of loadDocument  
+}
+</script>
