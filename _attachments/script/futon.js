@@ -477,13 +477,16 @@ app.showView = function () {
             var v = $("div#ddoc-view-selection");
             v.html('');
             if (row.doc.views) {
-              for (viewName in row.doc.views) {
+              //for (viewName in row.doc.views) {
+              $.each(row.doc.views, function (viewName) {
+                view = viewName;
+                console.log(viewName)
                 $('<div class="ddoc-view-select">'+viewName+'<span class="edit-view">edit</span></div>')
                 .appendTo(v)
                 .click(function () {
                   window.location.hash = "#/"+encodeURIComponent(db)+'/'+row.id+'/_view/'+encodeURIComponent(viewName)+'?limit=10';
                 });
-              }
+              });
             }
             v.append(getAddView());
             $("span.edit-view")
@@ -496,6 +499,8 @@ app.showView = function () {
             });
             ddoc_ = row.doc;
             if (view) {
+              console.log("view");
+              console.log(view);
               release();
             }
           };

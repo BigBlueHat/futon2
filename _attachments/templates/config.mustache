@@ -75,7 +75,7 @@ specific language governing permissions and limitations under the License.
                              , n.find('td.name').attr("section"), n.find('td.name').text(), null);
             }
         })
-        var add = $('<a href="#add">Add a new section</a>').click(function () {
+        var add = $('<button class="add">Add new section</button>').click(function () {
           $.showDialog("dialog/_create_config.html", {
             submit: function(data, callback) {
               var fail = false;
@@ -97,7 +97,7 @@ specific language governing permissions and limitations under the License.
             }
           });
         })
-        $("div#content").append(add)
+        $("#add-section").append(add)
       }
     });
 
@@ -112,6 +112,10 @@ specific language governing permissions and limitations under the License.
 <p class="help">
  For the strongest consistency guarantees, <tt>delayed_commits</tt> should be set to <tt>false</tt>. The default value of <tt>true</tt> is designed for single-user performance. For more details see <a href="http://wiki.apache.org/couchdb/Durability_Matrix">a discussion of durability on the CouchDB wiki</a>.
 </p>
+<ul id="toolbar">
+  <li id="add-section"></li>
+</ul>
+
 <table id="config" class="listing" cellspacing="0">
   <caption>Configuration</caption>
   <thead><tr>
