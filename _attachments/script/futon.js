@@ -601,7 +601,8 @@ app.showDatabase = function (context) {
     });
     context.render($('#all-dbs-template'), {dbs:dbs, current: function () { return this.db == db; }})
       .appendTo('#current-db');
-    $("#topbar button.down").click(function () {
+    $("#topbar button.down, #topbar a.db-name").click(function (event) {
+      event.preventDefault();
       $('#all-dbs').slideToggle();
     });
     $("#toolbar button.add").click( function () {
@@ -801,8 +802,8 @@ var futonApp = $.sammy(function () {
     },
     addDBTopBar: function(db) {
       $('#topbar').html(
-        '<a href="#/">Overview</a><strong id="current-db">' +
-          db +' <button class="down">&#160;</button></strong>' +
+        '<a href="#/">Overview</a><strong id="current-db"><a href="#/'+ db +'" class="db-name">' +
+          db +'</a> <button class="down">&#160;</button></strong>' +
           '<ul class="tabs"><li class="all-docs"><a href="#/' +
           encodeURIComponent(db) + '/_all_docs">All Documents</a></li>' +
           '<li class="design-docs"><a href="#/' + encodeURIComponent(db) +
