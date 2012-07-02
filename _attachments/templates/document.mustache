@@ -14,17 +14,13 @@ specific language governing permissions and limitations under the License.
 -->
 <ul id="toolbar">
   <li><button class="load">Upload Attachment…</button></li>
+  <li><button id="save-button" class="save">Save Document</button></li>
   <li class="right-side"><button class="delete">Delete Document…</button></li>
 </ul>
 
 <div id="document-container">
   <div id="document-editor">
     <span id="expand-all">...</span>
-    <div id="autosave">
-      <input id="autosave-input" type="checkbox" checked></input>
-      <span id="autosave-txt">auto-save</span>
-      <span id="save-button" style="display:none" class="save-disabled">save</span>
-    </div>
   </div>
 </div>
 <div class="spacer"></div>
@@ -83,9 +79,6 @@ $('button.delete').click(function () {
 $('span#expand-all').click(function () {
   $('span.expand').click(); 
 })
-var saveDisabled = {cursor:"default", "background-color": "#ddd", color:"white"};
-var saveEnabled = {cursor:"pointer", "background-color": "#D1D1D1", color:"#575757"};
-$("span#save-button").css(saveDisabled)
 
 var save = function (cb, force) {
   var doSave = function () {
@@ -112,22 +105,19 @@ var save = function (cb, force) {
       cb()
     })
   }
+  doSave();
   
-  if (!$("input#autosave-input").attr('checked')) {
-    $("input#autosave-input").attr('disabled', true);
-    $("span#save-button")
-    .css(saveEnabled)
-    .unbind('click')
-    .click( function () {
-      save(function () {
-        $("input#autosave-input").attr('disabled', false);
-        $("span#save-button").unbind('click').css(saveDisabled);
-      }, true)
-    })
-    if (force) {doSave()}
-    else (cb())
-  } else {doSave();}   
 }
+
+$("#save-button").click( function () {
+      $("#save-button").attr("disabled","disabled");
+      $("#save-button").text("Saving...");
+      save(function () {
+        $("#save-button").text("Save Document");
+        $("#save-button").removeAttr("disabled")
+      }, true)
+    });
+
 
 var getEdit = function (obj, key, val, minWidth) {
   var edit = function () {
@@ -149,10 +139,8 @@ var getEdit = function (obj, key, val, minWidth) {
       .height(h)
       .change(function () {
         obj[key] = coerceFieldValue( $(this).val() );
-        save(function (){
-          val.parent().append(createValue[getType(obj[key])](obj, key, true));
-          val.remove();
-        })
+        val.parent().append(createValue[getType(obj[key])](obj, key, true));
+        val.remove();
       })
     )
     
@@ -433,13 +421,7 @@ request({url:url+'?'+param(docQuery)}, function (err, resp) {
     }
     
   } else {
-    // Autosave enable and disable
-    $("input#autosave-input").click( function () {
-      var disable = !$("input#autosave-input").attr('checked');
-      $("span#autosave-txt")[disable ? "hide" : "show"]()
-      $("span#save-button")[disable ? "show" : "hide"]()
-    })
-  
+
     var d = $('div#document-editor');
     for (i in resp) {
       var field = $('<div class="doc-field"></div>')
