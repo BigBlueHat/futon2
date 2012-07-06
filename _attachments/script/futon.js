@@ -129,7 +129,7 @@ var request = function (options, callback) {
   options.processData = false;
   options.dataType = 'json';
   options.contentType = 'application/json';
-  $.ajax(options);
+  return $.ajax(options);
 };
 
 var handleError = function (err, resp) {
@@ -239,7 +239,61 @@ app.showConfig = function () {
 app.showStats = function () {
   this.title('Status');
   $('span#topbar').html('<strong>Status</strong>');
-  this.render('templates/stats.mustache').replace('#content').then(function () {
+  var self = this;
+  
+  var refreshTimeout = null;
+  var active_tasks = null; 
+  var refresh = function () {
+    return request({url:"/_active_tasks"}, function (err, tasks) {
+      if (err) handleError(err, tasks);
+      active_tasks = tasks; 
+      if (window.location.hash == '#/_stats') setTimeout(refresh, $("#interval input").val() * 1000);
+    })
+  };
+  var status_promise = refresh();
+
+  var stats_promise = request({url:'/_stats'}, function (err, data) {
+    stats = [];
+
+    for (section in data) {
+      var section_info = { name: section, subsections: [] };
+
+      for( subsection in data[section]) {
+        var subsection_obj = data[section][subsection]
+        var subsection_info = {  
+                            name: subsection,
+                            description: subsection_obj.description,
+                            current: subsection_obj.current,
+                            sum: subsection_obj.sum,
+                            mean: subsection_obj.mean,
+                            stddev: subsection_obj.stddev,
+                            min: subsection_obj.min,
+                            max: subsection_obj.max
+                        };
+
+        section_info.subsections.push(subsection_info);
+      }
+      stats.push(section_info);
+    }
+  });
+
+    $.when(stats_promise, status_promise).then(function () {
+      self.render('templates/stats.mustache', {tasks: active_tasks, stats: stats}).replace('#content').then(function () {
+
+        var slider = $("#interval input");
+        slider.val(5);
+        if (slider[0].type == "range") {
+          slider.bind("input", function() {
+            $("#interval .secs").text(this.value);
+          });
+          $("#interval .secs").text($("#interval input").val());
+        } else {
+          slider.bind("change", function() {
+            $("#interval .secs").text(this.value);
+          });
+          $("#interval .secs").hide();
+        } 
+    });
 
   });
 };
@@ -827,7 +881,6 @@ var futonApp = $.sammy(function () {
   });
 
   // Index of all databases
-  this.get('', app.showIndex);
   this.get("#/", app.showIndex);
 
   this.get('#/_config', app.showConfig);

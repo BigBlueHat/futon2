@@ -1002,6 +1002,16 @@ span.remove-error {
   border:none;
 }
 
+div.section-wrapper {
+  height: 300px;
+  width:100%;
+  margin-top:20px;
+}
+
+div.section-raw {
+}
+
+
 /*
 #fields tbody.content th button.delete {
   background: url(../image/delete-mini.png) no-repeat; border: none;
