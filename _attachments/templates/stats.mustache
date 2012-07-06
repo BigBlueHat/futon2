@@ -26,7 +26,20 @@ specific language governing permissions and limitations under the License.
     <th>PID</th>
     <th>Status</th>
   </tr></thead>
-  <tbody class="content"></tbody>
+  <tbody class="content">
+  {{#tasks}}
+    <tr>
+      <th>{{type}}</th>
+      <td class='object'>{{task}}</td>
+      <td class='pid'>{{pid}}</td>
+      <td class='status'>{{status}}</td>
+    </tr>
+    {{/tasks}}
+
+    {{^tasks}}
+    <tr class='none'><th colspan='4'>No tasks running</th></tr>
+   {{/tasks}}
+  </tbody>
 </table>
 {{#stats}}
   <div class="section-wrapper">

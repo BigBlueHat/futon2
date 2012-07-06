@@ -242,24 +242,11 @@ app.showStats = function () {
   var self = this;
   
   var refreshTimeout = null;
-  
+  var active_tasks = null; 
   var refresh = function () {
     return request({url:"/_active_tasks"}, function (err, tasks) {
       if (err) handleError(err, tasks);
-      $("#status tbody.content").empty();
-      if (!tasks.length) {
-        $("<tr class='none'><th colspan='4'>No tasks running</th></tr>")
-          .appendTo("#status tbody.content");
-      } else {
-        $.each(tasks, function(idx, task) {
-          $("<tr><th></th><td class='object'></td><td class='pid'></td><td class='status'></td></tr>")
-            .find("th").text(task.type).end()
-            .find("td.object").text(task.task).end()
-            .find("td.pid").text(task.pid).end()
-            .find("td.status").text(task.status).end()
-            .appendTo("#status tbody.content");
-        });
-      }
+      active_tasks = tasks; 
       if (window.location.hash == '#/_stats') setTimeout(refresh, $("#interval input").val() * 1000);
     })
   };
@@ -291,7 +278,8 @@ app.showStats = function () {
   });
 
     $.when(stats_promise, status_promise).then(function () {
-      self.render('templates/stats.mustache', {stats: stats}).replace('#content').then(function () {
+      self.render('templates/stats.mustache', {tasks: active_tasks, stats: stats}).replace('#content').then(function () {
+
         var slider = $("#interval input");
         slider.val(5);
         if (slider[0].type == "range") {
