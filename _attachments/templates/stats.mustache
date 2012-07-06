@@ -28,67 +28,33 @@ specific language governing permissions and limitations under the License.
   </tr></thead>
   <tbody class="content"></tbody>
 </table>
-<script>
-  var refreshTimeout = null;
-  
-  var refresh = function () {
-    request({url:"/_active_tasks"}, function (err, tasks) {
-      if (err) handleError(err, tasks);
-      $("#status tbody.content").empty();
-      if (!tasks.length) {
-        $("<tr class='none'><th colspan='4'>No tasks running</th></tr>")
-          .appendTo("#status tbody.content");
-      } else {
-        $.each(tasks, function(idx, task) {
-          $("<tr><th></th><td class='object'></td><td class='pid'></td><td class='status'></td></tr>")
-            .find("th").text(task.type).end()
-            .find("td.object").text(task.task).end()
-            .find("td.pid").text(task.pid).end()
-            .find("td.status").text(task.status).end()
-            .appendTo("#status tbody.content");
-        });
-      }
-      if (window.location.hash == '#/_stats') setTimeout(refresh, $("#interval input").val() * 1000);
-    })
-  };
-  refresh();
-  
-  var slider = $("#interval input");
-  slider.val(5);
-  if (slider[0].type == "range") {
-    slider.bind("input", function() {
-      $("#interval .secs").text(this.value);
-    });
-    $("#interval .secs").text($("#interval input").val());
-  } else {
-    slider.bind("change", function() {
-      $("#interval .secs").text(this.value);
-    });
-    $("#interval .secs").hide();
-  }
-  
-  request({url:'/_stats'}, function (err, stats) {
-    if (err) handleError(err, stats);
-    var info = $('#content').append('<h2>Raw Info</h2>')
-      , text = ''
-      ;
-    for (i in stats) {
-      text += '<div class="stat-section">'+i+'</div>'
-      for (x in stats[i]) {
-        text += '<div class="stat-subsection">'+x+'<span class="stat-subsection-description">'+stats[i][x].description+'</span></div>'
-        for (y in stats[i][x]) {
-          if (y !== 'description') {
-            text += '<span class="stat-title">'+y+'</span>'
-            text += '<span class="stat-value"> ' + 
-              ((stats[i][x][y] === null) ? 'none' : stats[i][x][y]) + 
-              ' </span>'
-          }
-        }
-        text += '<br>'
-      }
-      text += '<br>'
-      info.append(text)
-      text = ''
-    }
-  })
-</script>
+{{#stats}}
+  <div class="section-wrapper">
+  <h2>{{name}}</h2>
+    <div class="section-raw">
+      <table>
+        <tr>
+          <th> section </th>
+          <th> current </th>
+          <th>  sum </th>
+          <th>  mean </th>
+          <th>  stddev </th>
+          <th>  min </th>
+          <th>  max </th>
+        </tr>
+  {{#subsections}}
+        <tr>
+          <td>{{name}}</td>
+          <td>{{current}}</td>
+          <td>{{sum}}</td>
+          <td>{{mean}}</td>
+          <td>{{stddev}}</td>
+          <td>{{min}}</td>
+          <td>{{max}}</td>
+        </tr>
+  {{/subsections}}
+      </table>
+    </div>
+</div>
+{{/stats}}
+
