@@ -827,7 +827,6 @@ var futonApp = $.sammy(function () {
   });
 
   // Index of all databases
-  this.get('', app.showIndex);
   this.get("#/", app.showIndex);
 
   this.get('#/_config', app.showConfig);

@@ -38,7 +38,7 @@
     this.href_attribute = href_attribute;
   };
 
-  Sammy.DataLocationProxy.prototype = {
+$.extend(Sammy.DataLocationProxy.prototype , {
     bind: function() {
       var proxy = this;
       this.app.$element().bind('setData', function(e, key, value) {
@@ -67,12 +67,12 @@
     },
 
     getLocation: function() {
-      return this.app.$element().data(this.data_name);
+      return this.app.$element().data(this.data_name) || '';
     },
 
     setLocation: function(new_location) {
       return this.app.$element().data(this.data_name, new_location);
     }
-  };
+  });
 
 })(jQuery);
