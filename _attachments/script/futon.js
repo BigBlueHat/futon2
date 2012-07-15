@@ -763,6 +763,36 @@ app.showDatabase = function (context) {
     .then(function () {init.call(this, context); moreRows(0,20);});
 };
 
+app.showLog = function(context) {
+  this.title('Log');
+  $('span#topbar').html('<strong>Log</strong>');
+
+  var self = this;
+  var promise = $.get('/_log?bytes=5000');
+  promise.done(function (data) {
+    var logs = [];
+    var lines =  data.split(/\n/);
+    $.each(lines, function (index, log) {
+      raw_items = log.split("]");  
+      if (raw_items.length < 4) { return; }
+
+        // must be a better way of remove the "["
+        var log_row = {
+          date: raw_items[0].replace("["," "),
+          log_level: raw_items[1].replace("["," "),
+          pid: raw_items[2].replace("["," "),
+          args: raw_items[3].replace("["," "),
+        };
+
+        logs.push(log_row);
+    });
+
+    self.render('templates/log.mustache', {logs: logs})
+    .replace('#content');
+  });
+
+};
+
 app.wildcard = function () {
   var args = this.path.split('/');
   args.splice(0,1);
@@ -833,6 +863,7 @@ var futonApp = $.sammy(function () {
   this.get('#/_stats', app.showStats);
   this.get('#/_tests', app.showTests);
   this.get('#/_replicate', app.showReplicator);
+  this.get('#/_log', app.showLog);
 
   this.get('#/:db/_views', app.showView); // TODO: see below...duplicate route?
   this.get('#/:db/_design/:ddoc/_view/', app.showView);
@@ -849,6 +880,7 @@ var futonApp = $.sammy(function () {
   this.get('#/:db/_views', app.showViews); // TODO: not a real CouchDB URL...replace?
   // Document editor/viewer
   this.get('#/:db/:docid', app.showDocument);
+
 
   this.get(/\#\/(.*)/, app.wildcard);
 });

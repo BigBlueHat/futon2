@@ -141,6 +141,9 @@ table.listing thead th.desc span {
   background-image: url(../image/order-desc.gif);
 }
 table.listing tbody tr th, table.listing tbody tr td { background: #feffea; }
+table.listing tbody tr th, table.listing tbody tr.error td { background: #DD7772; }
+table.listing tbody tr th, table.listing tbody tr.debug td { background:  #60B1B8; }
+table.listing tbody tr th, table.listing tbody tr.info td { background:  #feffea; }
 table.listing tbody tr.odd th, table.listing tbody tr.odd td,
 table.listing tbody.odd tr th, table.listing tbody.odd tr td {
   background: #fff;
